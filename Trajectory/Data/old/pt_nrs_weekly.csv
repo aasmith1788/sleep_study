@@ -1,0 +1,45 @@
+﻿Aim1: Group-based Pain Trajectory,,,,,Aim2: Baseline measures - Logistic Regression,,,
+Daily ,,PT Survey,,,Baseline (wesensoa_main_blw6w12w18et_an),,Baseline (wesensoa_main_labvisits_an ),
+DSIS (0-10),dsis_02bdbc; dsis2,KOS ADL,kos_adl,,"Strength, N",,Oral med intake in 48 hours,vitals_meds
+Physical Activity (min),del_1,Overall function of  knee during  usual daily activities,kos_overall,,CES-D,cesd_score_dv,Entry NRS,entry_nrs
+"Strength Test (0,1)",del_2,Current function of knee (1-100),kos_global,,WPI Joint Pain,wpi_joint_pain,Exit Pain,hws_pain_score
+Medication Intake,,Knee pain in the last 24 hours,kos_pain,,WPI,wpi_score,6MWT Distance,walk6m_dist
+,,Current pain,ps_1,,PCS,pcs_score,"Gait28m, time",
+Weekly,,Best you have felt in last 24 hours,ps_2,,paindetect,paindetect_score,"s2s, time",
+PGA-OA,pgaoa,Worst you have felt in last 24 hours,ps_3,,age,,"stupoa, num",
+NRSna,nrsna_pain_fu,NPQ (Knowledge),npq_total,,sex,,"sct, time",
+WOMAC Pain,kd_womac_pain,IPAQ (Vig + Mod + Walking),ipaq_met_total,,bmi,,SPPB Score Total,sppb_score_total
+WOMAC Stiff,kd_womac_stiff,1. Vigorous MET-minutes/week,ipaq_vig_met_mwk,,race,,Balance ,sppb_bal_score
+WOMAC Func,kd_womac_func,2. Moderate MET-minutes/week,ipaq_mod_met_mwk,,demo_ed,,"Isometric quadriceps strength, Nm",
+P1.  How often do you experience knee pain?,koos_wk_p1,3. Walking MET-minutes/week,ipaq_walk_met_mwk,,"stroke, cerebrovascular accident, bleeding in the brain, or TIA",comorb_stroke,"Isometric hamstrings strength, Nm",
+P2.  Twisting/pivoting on your knee,koos_wk_p2,GROC,groc_score,,Diabetes,comorb_diab,"Isokinetic quad strength at 60, Nm",
+P3.  Straightening knee fully,koos_wk_p3,WAI,wai_total,,RA,comorb_ra,"Isokinetic quad strength at 120, Nm",
+P4.  Bending knee fully,koos_wk_p4,,,,Lupus,comorb_lupus,,isom_q_pktq_max
+P5.  Walking on flat surface,koos_wk_p5,PT Attend Survey (wesensoa_pt_attend_ex_rx_an ),,,Cancer,comorb_cancer,,isom_h_pktq_max
+P6.  Going up or down stairs,koos_wk_p6,"Pain at start (pre), 0-10",eval2_tx_mod1,,CCI ,comorb_final_score,,isok60_pktq_away_mean
+P7.  At night while in bed,koos_wk_p7,"Pain at end (post), 0-10",eval2_end_pain,,Physical Sum,moess_physical,,isok120_pktq_away_mean
+P8.  Sitting or lying,koos_wk_p8,,,,Social Sum,moess_social,,isok60_pktq_twd_mean
+P9.  Standing upright,koos_wk_p9,,,,Self Eval Sum,moess_selfeval,,isok120_pktq_twd_mean
+KOOS Pain,koos_pain,,,,"Tylenol orally (0,1)",tx_hx_tylenol,Sleep measures from Actigraph's algorithm,
+KOOS ADL,koos_adl,,,,"Aspirin, Motrin…. Orally",tx_hx_meds,,
+,,,,,Stronger Medication…Orally,tx_hx_meds_2,,
+,,,,,Exercise at home,tx_hx1,,
+,,,,,Walking exercise,tx_hx4,,
+,,,,,Walking on flat surface,kks_p5,,
+,,,,,Going up or down stairs,kks_p6,,
+,,,,,Bending knee fully,kks_p4,,
+,,,,,Straightening knee fully,kks_p3,,
+,,,,,Twisting/pivoting on your knee,kks_p2,,
+,,,,,At night while in bed,kks_p7,,
+,,,,,Sitting or lying,kks_p8,,
+,,,,,Standing upright,kks_p9,,
+,,,,,NRSna,nrsna_pain,,
+,,,,,KOOS,koos_pain,,
+,,,,,KOOS,koos_symp,,
+,,,,,KOOS,koos_symp_mod,,
+,,,,,KOOS,koos_adl,,
+,,,,,KOOS,koos_sr,,
+,,,,,KOOS,koos_qol,,
+,,,,,WOMAC,kd_womac_pain,,
+,,,,,WOMAC,kd_womac_stiff,,
+,,,,,WOMAC,kd_womac_func,,

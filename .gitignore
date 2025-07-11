@@ -1,0 +1,9 @@
+# Sleep Trajectory Analysis .gitignore 
+# Temporary files 
+*.log 
+*.tmp 
+*~ 
+# OS files 
+.DS_Store 
+Thumbs.db 
+desktop.ini 
