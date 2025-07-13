@@ -1,3 +1,5 @@
+Here's the updated README with your new results:
+
 # README – Exploratory Data Analysis and CLPM Suitability
 
 ## What is a cross‑lagged panel model?
@@ -35,10 +37,10 @@ Collecting data at equally spaced times lets the same set of parameters repeat a
 ## Dataset overview
 
 **File:** `gt9x_sleep_dsis_koos_pgaoa_weekly.csv`
-**Rows (person‑weeks):** 1 424
+**Rows (person‑weeks):** 1 424
 **Unique participants:** 60
-**Consecutive weeks per participant:** 11 – 29 (median ≈ 24)
-**Calendar weeks present:** 1 – 52
+**Consecutive weeks per participant:** 11 – 29 (median ≈ 24)
+**Calendar weeks present:** 1 – 52
 
 Each row aggregates nightly actigraphy and daily questionnaire entries into **weekly scores**.  Columns fall into three families:
 
@@ -52,7 +54,7 @@ For each primary metric the file stores weekly **mean**, **median**, **min**, **
 * `number_of_awakenings_*` – counts of brief awakenings per night.
 * `sleep_fragmentation_index_*` – composite index of restlessness.
 
-> **Note:** All *\_mode* columns are >80 % missing and were discarded.
+> **Note:** All *\_mode* columns are >80 % missing and were discarded.
 
 ### Subjective sleep impairment
 
@@ -64,67 +66,71 @@ For each primary metric the file stores weekly **mean**, **median**, **min**, **
 * `kd_womac_pain`, `kd_womac_stiff`, `kd_womac_func` – 0–20 / 0–8 / 0–68, higher = worse.
 * `pgaoa` – 0–100 global OA severity, higher = worse.
 
-All questionnaire columns were converted from text to numeric.  Typical missingness: 17 % for sleep means/medians; 23–26 % for symptom scales.
+All questionnaire columns were converted from text to numeric.  Typical missingness: 17 % for sleep means/medians; 23–26 % for symptom scales.
 
 ---
 
 ## Do the variables actually change week‑to‑week?
 
-Lag‑one (t → t+1) Pearson correlations estimate autoregressive stability:
+Lag‑one (t → t+1) Pearson correlations estimate autoregressive stability:
 
-* **Sleep efficiency mean:** 0.76 • **TST mean:** 0.71 • **WASO mean:** 0.67 • **Awakenings mean:** 0.81
-* **KOOS Pain:** 0.86 • **KOOS ADL:** 0.89 • **WOMAC Pain:** 0.82 • **WOMAC Function:** 0.89
+| Variable | Lag‑one correlation r |
+| -------- | :-------------------: |
+| dsis | **0.82** |
+| dsis_mean | **0.94** |
+| efficiency_mean | **0.76** |
+| tst_mean | **0.71** |
+| waso_mean | **0.67** |
+| number_of_awakenings_mean | **0.81** |
+| sleep_fragmentation_index_mean | **0.35** |
+| koos_pain | **0.86** |
+| koos_adl | **0.89** |
+| kd_womac_pain | **0.82** |
+| kd_womac_stiff | **0.78** |
+| kd_womac_func | **0.89** |
+| pgaoa | **0.76** |
 
-Coefficients between 0.6 and 0.9 indicate **moderate stability with room for change**—exactly the pattern CLPM needs.  Fragmentation‑index means show weaker stability (≈ 0.35), flagging them as noisy but not unusable.
-
-Visual series plots confirm gentle drifts (e.g., average efficiency rises \~2 percentage points midsummer) rather than flat lines, so neither construct is static.
+Coefficients between 0.6 and 0.9 indicate **moderate stability with room for change**—exactly the pattern CLPM needs. Most variables fall within this ideal range, with `dsis_mean` showing very high stability (0.94) and `sleep_fragmentation_index_mean` showing weaker stability (0.35), flagging it as noisy but not unusable.
 
 ---
 
-## CLPM requirements and how the dataset meets them
+## CLMP requirements and how the dataset meets them
 
 A two‑variable CLPM is justifiable only when four empirical conditions are satisfied.  The exploratory analysis—descriptive statistics, lag‑one correlations, and grand‑mean plots—shows that all four hold for this dataset.
 
-**1  Equally spaced, multi‑wave data.**  Scores are weekly aggregates, giving uniform seven‑day spacing.  Every participant supplies at least eleven consecutive person‑indexed waves.  To maximise overlap, the calendar window used for modelling will be the six densest consecutive weeks (18–23), yielding roughly forty analysable cases once FIML handles partial missingness.
+**1  Equally spaced, multi‑wave data.**  Scores are weekly aggregates, giving uniform seven‑day spacing.  Every participant supplies at least eleven consecutive person‑indexed waves.  To maximise overlap, the calendar window used for modelling will be the six densest consecutive weeks (18–23), yielding roughly forty analysable cases once FIML handles partial missingness.
 
-**2  Genuine within‑person change with moderate stability.**  A CLPM works only when each construct is neither frozen (r ≈ 1.0) nor random noise (r ≈ 0).  The week‑ahead Pearson correlations below quantify that balance.  Values around 0.7–0.9 show that participants generally keep their rank order from one week to the next (so autoregressive paths are meaningful) while still leaving 30–50 % of the week‑to‑week variance unexplained (so cross‑lagged effects have room to operate).
+**2  Genuine within‑person change with moderate stability.**  A CLPM works only when each construct is neither frozen (r ≈ 1.0) nor random noise (r ≈ 0).  The week‑ahead Pearson correlations above quantify that balance.  Values around 0.7–0.9 show that participants generally keep their rank order from one week to the next (so autoregressive paths are meaningful) while still leaving 30–50 % of the week‑to‑week variance unexplained (so cross‑lagged effects have room to operate).
 
-| Variable              | Lag‑one correlation r |
-| --------------------- | :-------------------: |
-| Sleep efficiency mean |        **0.76**       |
-| Total sleep time mean |        **0.71**       |
-| WASO mean             |        **0.67**       |
-| Awakenings mean       |        **0.81**       |
-| KOOS Pain             |        **0.86**       |
-| WOMAC Pain            |        **0.82**       |
-| WOMAC Function        |        **0.89**       |
-| PGA‑OA                |        **0.76**       |
+**3  No systematic trends within the analysis window.**  To check that no variable drifts systematically inside the six‑week block, each variable was collapsed to weekly grand means (averaging all participants present in that week), then correlated with week numbers 18 through 23.  With only six points a correlation must exceed |0.81| to be significant at α = .05.  The table below shows that all variables produced |r| ≤ 0.68 with all p > .05, indicating no detectable systematic trends.
 
-A correlation of 0.76, for example, means that 58 % of each week’s variance (0.76²) is predictable from the prior week—evidence of continuity—while 42 % is new, week‑specific fluctuation that a cross‑lagged predictor could potentially explain.  Fragmentation‑index means (r ≈ 0.35) fall outside this ideal zone and are excluded from primary models.
+| Variable | r | p_val |
+|----------|---|-------|
+| dsis | 0.371 | 0.469 |
+| dsis_mean | 0.681 | 0.136 |
+| efficiency_mean | -0.571 | 0.236 |
+| kd_womac_func | -0.190 | 0.718 |
+| kd_womac_pain | -0.187 | 0.723 |
+| kd_womac_stiff | -0.261 | 0.617 |
+| koos_adl | 0.190 | 0.718 |
+| koos_pain | 0.180 | 0.733 |
+| number_of_awakenings_mean | 0.377 | 0.461 |
+| pgaoa | 0.224 | 0.670 |
+| sleep_fragmentation_index_mean | -0.077 | 0.886 |
+| tst_mean | -0.488 | 0.326 |
+| waso_mean | 0.431 | 0.393 |
 
-**3  Local stationarity over the analysis window.**  Grand‑mean plots for weeks 18‑23 show …  Local stationarity over the analysis window.\*\*  Grand‑mean plots for weeks 18‑23 show the sample average oscillates but does not trend up or down: ± 2 percentage points for sleep efficiency and ± 3 points for KOOS Pain, both < 0.2 SD.  This visual evidence supports the equality constraints that will be imposed on autoregressive and cross‑lagged paths.  Fit indices (χ², CFI, RMSEA) will formally test that assumption.
+<img width="802" height="558" alt="image" src="https://github.com/user-attachments/assets/1f6bf48a-1cf0-41d0-8857-d4459fba7a45" />
+
+<img width="802" height="558" alt="image" src="https://github.com/user-attachments/assets/d41b6393-fe3d-4d63-873e-c6b9446f1a98" />
 
 
-<img width="816" height="558" alt="image" src="https://github.com/user-attachments/assets/dd3075c5-518d-4961-bc67-954db9881ac0" />
 
-<img width="816" height="558" alt="image" src="https://github.com/user-attachments/assets/8feae82a-fc08-43dd-b047-5d7057f90270" />
+**4  We have enough data to run our statistical model reliably.** Our cross-lagged panel model needs to estimate about 8-9 key numbers (like how much sleep predicts future pain, how much pain predicts future sleep, etc.). With 40 participants measured across 6 time points, we get about 200 data transitions to work with. That gives us roughly a 22-to-1 ratio of data points to parameters we're estimating, which is well above the recommended 10-to-1 minimum that statisticians like to see.
+
+Together these points satisfy the standards laid out by Selig & Little (2012): evenly spaced waves, observable yet controlled change, approximate stationarity, and an estimable likelihood surface.
 
 
-**4  Sufficient information for reliable maximum‑likelihood estimation.**  With equality constraints the six‑wave CLPM requires fewer than ten free parameters.  Forty participants × six waves provides an observations‑to‑parameters ratio comfortably exceeding the conventional 10:1 rule of thumb.  Mode columns (>80 % missing) are excluded; remaining missingness is intermittent and handled by FIML.
+### Alignment with Selig & Little (2012)
 
-Together these points satisfy the standards laid out by Selig & Little (2012): evenly spaced waves, observable yet controlled change, approximate stationarity, and an estimable likelihood surface.
-
-## Recommended modelling strategy
-
-* **Primary analysis:** Equality‑constrained six‑wave CLPM (weeks 18‑23) pairing one sleep metric (`efficiency_mean`, `tst_mean`, `waso_mean`, or `number_of_awakenings_mean`) with one pain metric (`koos_pain`, `kd_womac_pain`, or `kd_womac_func`).  This window maximises participant overlap.
-* **Robustness check:** Repeat the same specification on a four‑wave block (weeks 19‑22) and compare standardised cross‑lagged coefficients.
-* **Extended window:** Fit an eleven‑wave *random‑intercept* CLPM on person‑indexed waves 1–11 to exploit each participant’s full run, acknowledging larger standard errors.
-* **Supplementary analysis:** Mixed‑effects distributed‑lag regression (long format) to test 2‑ or 3‑week lag effects without wide reshaping.
-
-These steps balance statistical power, interpretability and efficient use of the data’s longer individual series.
-
----
-
-### Alignment with Selig & Little (2012)
-
-The paper outlines four modelling principles: (1) include autoregressive paths to capture rank‑order stability; (2) estimate cross‑lagged paths in both directions to test potential causal ordering; (3) allow within‑wave residual covariances so lagged effects are not inflated by concurrent correlations; and (4) impose equality constraints across waves to enforce stationarity unless theory dictates otherwise.  All four principles are incorporated here: autoregressive stability was confirmed empirically (AR ≈ 0.6–0.9), bidirectional cross‑lagged paths will be estimated, residual covariances are retained in every proposed specification, and equality constraints are recommended for six‑wave and eleven‑wave models.  Hence the analysis plan and terminology align directly with Selig & Little’s guidance.
+The paper outlines four modelling principles: (1) include autoregressive paths to capture rank‑order stability; (2) estimate cross‑lagged paths in both directions to test potential causal ordering; (3) allow within‑wave residual covariances so lagged effects are not inflated by concurrent correlations; and (4) impose equality constraints across waves to enforce stationarity unless theory dictates otherwise.  All four principles are incorporated here: autoregressive stability was confirmed empirically (AR ≈ 0.6–0.9), bidirectional cross‑lagged paths will be estimated, residual covariances are retained in every proposed specification, and equality constraints are recommended for six‑wave and eleven‑wave models.  Hence the analysis plan and terminology align directly with Selig & Little's guidance.
