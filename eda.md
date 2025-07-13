@@ -104,6 +104,9 @@ A correlation of 0.76, for example, means that 58 % of each week’s variance (
 
 **3  Local stationarity over the analysis window.**  Grand‑mean plots for weeks 18‑23 show …  Local stationarity over the analysis window.\*\*  Grand‑mean plots for weeks 18‑23 show the sample average oscillates but does not trend up or down: ± 2 percentage points for sleep efficiency and ± 3 points for KOOS Pain, both < 0.2 SD.  This visual evidence supports the equality constraints that will be imposed on autoregressive and cross‑lagged paths.  Fit indices (χ², CFI, RMSEA) will formally test that assumption.
 
+<img width="816" height="558" alt="image" src="https://github.com/user-attachments/assets/8feae82a-fc08-43dd-b047-5d7057f90270" />
+
+
 **4  Sufficient information for reliable maximum‑likelihood estimation.**  With equality constraints the six‑wave CLPM requires fewer than ten free parameters.  Forty participants × six waves provides an observations‑to‑parameters ratio comfortably exceeding the conventional 10:1 rule of thumb.  Mode columns (>80 % missing) are excluded; remaining missingness is intermittent and handled by FIML.
 
 Together these points satisfy the standards laid out by Selig & Little (2012): evenly spaced waves, observable yet controlled change, approximate stationarity, and an estimable likelihood surface.
