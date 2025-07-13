@@ -104,6 +104,9 @@ A correlation of 0.76, for example, means that 58 % of each week’s variance (
 
 **3  Local stationarity over the analysis window.**  Grand‑mean plots for weeks 18‑23 show …  Local stationarity over the analysis window.\*\*  Grand‑mean plots for weeks 18‑23 show the sample average oscillates but does not trend up or down: ± 2 percentage points for sleep efficiency and ± 3 points for KOOS Pain, both < 0.2 SD.  This visual evidence supports the equality constraints that will be imposed on autoregressive and cross‑lagged paths.  Fit indices (χ², CFI, RMSEA) will formally test that assumption.
 
+
+<img width="816" height="558" alt="image" src="https://github.com/user-attachments/assets/dd3075c5-518d-4961-bc67-954db9881ac0" />
+
 <img width="816" height="558" alt="image" src="https://github.com/user-attachments/assets/8feae82a-fc08-43dd-b047-5d7057f90270" />
 
 
