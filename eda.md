@@ -70,7 +70,7 @@ All questionnaire columns were converted from text to numeric.  Typical missingn
 
 ---
 
-## Do the variables actually change week‑to‑week?
+
 
 Lag‑one (t → t+1) Pearson correlations estimate autoregressive stability:
 
