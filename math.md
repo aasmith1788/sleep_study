@@ -1,4 +1,4 @@
-# README: How Our Cross-Lagged Panel Model (CLPM) Works — Fully Explained
+
 
 We're using a Cross-Lagged Panel Model (CLPM) to understand how sleep and pain influence each other over six weekly time points. Our goal is to estimate whether poor sleep leads to increased pain (or vice versa), while accounting for each variable's stability over time. The model structure assumes that each variable at time t is a linear function of both variables at time t−1. The structural equations look like this:
 
