@@ -4,6 +4,12 @@
 
 We examined bidirectional relationships between objective sleep measures and pain severity using cross-lagged panel models (CLPMs). The analysis included 39 participants measured weekly during weeks 18–23, providing six consecutive assessments. We tested five actigraphy-derived sleep variables against the Patient Global Assessment of Osteoarthritis (PGAoA) pain scale. Following Selig & Little (2012), our models included autoregressive paths (week-to-week stability), cross-lagged paths (directional effects), and within-wave residual covariances. All parameters were constrained equal across waves to assume stationarity, and we used Full Information Maximum Likelihood (FIML) to handle missing data.
 
+```
+Sleep_t = μ_S,t + a·Sleep_t-1 + b·Pain_t-1 + ε_S,t
+Pain_t = μ_P,t + c·Pain_t-1 + d·Sleep_t-1 + ε_P,t
+```
+Here, `a` and `c` represent autoregressive effects (week-to-week stability), while `b` and `d` are the cross-lagged effects of interest—capturing whether sleep predicts later pain or pain predicts later sleep. The μ terms are intercepts, and the ε terms represent unexplained variance at each time point.
+
 ## Table 1: Model Fit Statistics
 
 | Sleep Measure | CFI | TLI | RMSEA | SRMR | χ² (df=56) | p-value |
