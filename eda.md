@@ -54,10 +54,10 @@ Typical missingness is 18% for objective sleep means and 22-25% for symptom scal
 
 The exploratory analysis assessed whether the data meets the requirements for longitudinal panel modeling.
 
-**1. Equally Spaced, Multi-Wave Data:** ✅
+**1. Equally Spaced, Multi-Wave Data:** 
 Scores are weekly aggregates, providing uniform seven-day spacing over 26 potential waves.
 
-**2. Moderate Stability:** ✅
+**2. Moderate Stability:** 
 A panel model requires constructs to be stable but not static. The lag-1 autoregressive correlations show this is the case for most variables. Coefficients between 0.6 and 0.9 indicate moderate-to-high stability with sufficient within-person variance for cross-lagged effects to be estimated.
 
 | Variable                       | Lag-1 Correlation (r) |
@@ -76,7 +76,7 @@ A panel model requires constructs to be stable but not static. The lag-1 autoreg
 | `kd_womac_func`                  |         **0.90** |
 | `pgaoa`                          |         **0.75** |
 
-**3. Stationarity and Systematic Trends:** ❌
+**3. Stationarity and Systematic Trends:** 
 A standard CLPM assumes stationarity (no systematic trends over time). The analysis of the **full 26-week dataset shows this assumption is violated.** Correlating each variable's weekly grand mean with the time variable (`redcap_event_name`) reveals significant trends.
 
 | Variable                         | Correlation with Time (r) | p-value                 |
@@ -102,10 +102,4 @@ A standard CLPM assumes stationarity (no systematic trends over time). The analy
 ## Final Recommendation: Use an RI-CLPM
 
 Based on this analysis, the recommended approach is a **Random-Intercept Cross-Lagged Panel Model (RI-CLPM)**.
-
-* **Why?** The RI-CLPM is designed for non-stationary data. It separates the stable, between-person differences (which account for much of the trend) from the dynamic, within-person fluctuations. This allows for an unbiased estimation of the cross-lagged relationships.
-* **Data Usage:** Use **all 26 waves** of data. Do not subset the time window.
-* **Missing Data:** Use **Full Information Maximum Likelihood (FIML)** to incorporate all available data from all 60 participants.
-
-This approach aligns with modern best practices for longitudinal data and will provide the most accurate and robust test of the reciprocal relationship between sleep and pain in this dataset.
 
