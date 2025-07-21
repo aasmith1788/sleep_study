@@ -302,14 +302,14 @@ We examined bidirectional relationships between objective sleep measures and KOO
 
 ## Table 1: Model Fit Statistics
 
-| Sleep Measure | N | χ² (df=53) | p-value | CFI | TLI | RMSEA | SRMR | AIC | BIC |
-|---------------|---|------------|---------|-----|-----|-------|------|-----|-----|
-| **Optimal Thresholds** | — | — | **> 0.05** | **> 0.95** | **> 0.95** | **< 0.06** | **< 0.08** | — | — |
-| Efficiency Mean | 60 | 150.0 | <0.001 | 0.840 | 0.801 | 0.175 | 0.126 | 1365 | 1443 |
-| TST Mean | 60 | 120.0 | <0.001 | 0.886 | 0.858 | 0.145 | 0.152 | 1350 | 1427 |
-| WASO Mean | 60 | 147.0 | <0.001 | 0.828 | 0.785 | 0.172 | 0.130 | 1425 | 1502 |
-| Number of Awakenings | 60 | 156.0 | <0.001 | 0.845 | 0.808 | 0.180 | 0.123 | 1312 | 1390 |
-| Sleep Fragmentation | 60 | 142.0 | <0.001 | 0.813 | 0.767 | 0.167 | 0.144 | 1488 | 1566 |
+| Sleep Measure | N | χ² (df=53) | p-value | CFI | TLI | RMSEA | SRMR | 
+|---------------|---|------------|---------|-----|-----|-------|------|
+| **Optimal Thresholds** | — | — | **> 0.05** | **> 0.95** | **> 0.95** | **< 0.06** | **< 0.08** |
+| Efficiency Mean | 60 | 150.0 | <0.001 | 0.840 | 0.801 | 0.175 | 0.126 | 
+| TST Mean | 60 | 120.0 | <0.001 | 0.886 | 0.858 | 0.145 | 0.152 |
+| WASO Mean | 60 | 147.0 | <0.001 | 0.828 | 0.785 | 0.172 | 0.130 | 
+| Number of Awakenings | 60 | 156.0 | <0.001 | 0.845 | 0.808 | 0.180 | 0.123 | 
+| Sleep Fragmentation | 60 | 142.0 | <0.001 | 0.813 | 0.767 | 0.167 | 0.144 |
 
 ### Fit Metric Definitions:
 
