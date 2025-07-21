@@ -166,6 +166,13 @@ OVERVIEW SUMMARY:
 The fundamental difference between a standard CLPM and an RI-CLPM lies in how they conceptualize and model individual differences. A standard CLPM treats all variance as time-varying, meaning it assumes that when Person A consistently sleeps better than Person B across all weeks, this stable difference is part of the same process that explains why Person A might sleep better in Week 3 than Week 2. This conflation becomes problematic because the model cannot distinguish between "Person A always sleeps better than others" (a between-person phenomenon) and "Person A slept better than usual this week" (a within-person phenomenon). As a result, the cross-lagged paths in a standard CLPM capture a mixture of between-person associations (people who generally sleep better tend to have less pain) and within-person dynamics (when someone sleeps better than their usual, their pain improves), making it impossible to determine whether sleep actually influences pain within individuals over time.
 The RI-CLPM solves this problem by explicitly decomposing each person's observed score into two components: a time-invariant random intercept that captures their stable position relative to others, and time-varying deviations from their own typical level. This decomposition is crucial for handling non-stationary data because systematic trends often arise from between-person differences—for instance, some individuals might show steady improvement while others remain stable or worsen. In a standard CLPM, these person-specific trajectories would bias the estimation of cross-lagged effects because the model would interpret these stable individual trends as evidence of variables influencing each other over time. The RI-CLPM absorbs these stable differences (including person-specific linear trends) into the random intercepts, leaving only the within-person fluctuations to inform the cross-lagged parameters. This means the model can handle data where the group-level means change over time, as long as these changes reflect aggregations of stable individual differences rather than synchronized within-person changes. The cross-lagged effects in an RI-CLPM thus answer a more precise question: when an individual deviates from their own typical level on one variable, does this predict their deviation on another variable at the next time point?
 
+In the example, Person A always sleeps 2 hours more than Person B and always has 4 points less pain—these are stable between-person differences that never change. When both people sleep 1 extra hour in Week 3 and both experience 1 point less pain, the true within-person effect is that 1 extra hour of sleep reduces pain by 1 point. However, the standard CLPM conflates the stable 2-hour/4-point between-person difference with the 1-hour/1-point within-person change, potentially concluding that sleep has a larger effect on pain than it actually does within individuals.
+
+This conflation becomes especially problematic with non-stationary data because stable between-person differences often create trends over time. For instance, if Person A's natural sleep tendency improves steadily (7h → 7.5h → 8h) while Person B's remains flat at 5h, the group average shows an upward trend. The standard CLPM interprets this trend as evidence that sleep is affecting pain over time, when it's actually just Person A pulling the average up due to their stable characteristic of being a better sleeper who improves over time—the model mistakes these person-specific trajectories for genuine within-person causal dynamics.
+
+Standard CLPM Approach: The standard CLPM looks at all the data points together and asks: "When sleep goes up across the sample, does pain go down?" It pools Person A's Week 1 (6h sleep, 7 pain), Person A's Week 2 (7h sleep, 6 pain), Person B's Week 1 (4h sleep, 8 pain), Person B's Week 2 (4h sleep, 8 pain), etc. all into one big analysis. It sees that higher sleep values tend to co-occur with lower pain values and concludes "sleep improvements cause pain reductions." But this is mixing up Person A's generally better sleep/pain levels with actual within-person changes. When people have different upward or downward trends, the standard CLPM mistakenly treats these trends as evidence of causation rather than individual differences.
+RI-CLPM Approach: The RI-CLPM first calculates each person's average trajectory over time. For Person A, it might find that on average, they improve by 1 hour of sleep and 1 point of pain each week. For Person B, it finds they stay flat. Then it removes these individual trajectories from the data. This separation prevents positive or negative trends from contaminating the causal estimates, since each person's trend is accounted for separately.
+
 ## Dataset Overview
 
 **File:** `gt9x_sleep_dsis_koos_pgaoa_weekly.csv`
@@ -241,13 +248,57 @@ A standard CLPM assumes stationarity (no systematic trends over time). The analy
 | `dsis_mean`                      |           -0.15           | 0.475                   |
 | `sleep_fragmentation_index_mean` |           -0.03           | 0.905                   |
 
-**Conclusion:** The presence of strong, systematic trends makes a standard CLPM inappropriate. These trends must be explicitly modeled.
+## Table X. Trend Analysis Comparison: All Waves vs First 6 Waves
 
-## Final Recommendation: Use an RI-CLPM
+| Variable | All Waves (0-25) |  | First 6 Waves (0-5) |  | Trend Reduction |
+|----------|------------------|--|---------------------|--|-----------------|
+|          | r | p-value | r | p-value | % Reduction |
+| **Pain/Function Variables** |  |  |  |  |  |
+| PGAOA | 0.897*** | <0.001 | 0.062 | 0.907 | 93.1% |
+| KOOS ADL | 0.878*** | <0.001 | 0.801 | 0.055 | 8.7% |
+| KOOS Pain | 0.807*** | <0.001 | 0.873* | 0.023 | -8.2%ᵃ |
+| WOMAC Pain | -0.839*** | <0.001 | -0.818* | 0.047 | 2.5% |
+| WOMAC Stiffness | -0.701*** | <0.001 | -0.842* | 0.036 | -20.1%ᵃ |
+| WOMAC Function | -0.878*** | <0.001 | -0.801 | 0.055 | 8.7% |
+| **Sleep Variables** |  |  |  |  |  |
+| Sleep Efficiency | 0.833*** | <0.001 | 0.633 | 0.177 | 23.9% |
+| Total Sleep Time | 0.522* | 0.011 | 0.474 | 0.342 | 9.2% |
+| WASO | -0.815*** | <0.001 | -0.650 | 0.163 | 20.3% |
+| Awakenings | -0.848*** | <0.001 | -0.688 | 0.131 | 19.0% |
+| Sleep Fragmentation | -0.026 | 0.905 | 0.071 | 0.894 | -169.2%ᵃ |
+| **Symptom Variables** |  |  |  |  |  |
+| DSIS | -0.325 | 0.122 | -0.471 | 0.346 | -44.9%ᵃ |
+| DSIS Mean | -0.153 | 0.475 | -0.719 | 0.171 | -370.0%ᵃ |
 
-Based on this analysis, the recommended approach is a **Random-Intercept Cross-Lagged Panel Model (RI-CLPM)**.
+ICC measures the proportion of total variance that comes from stable between-person differences versus within-person changes over time.
+Formula: ICC = Between-Person Variance / Total Variance
 
----
+Interpretation:
+
+ICC ≥ 0.75: Large between-person differences
+ICC ≥ 0.50: Moderate between-person differences
+ICC ≥ 0.25: Small between-person differences
+ICC < 0.25: Minimal between-person differences
+
+| Variable | ICC | Interpretation |
+|----------|-----|----------------|
+| KOOS ADL | 0.836 | Large between-person differences |
+| WOMAC Function | 0.836 | Large between-person differences |
+| KOOS Pain | 0.792 | Large between-person differences |
+| DSIS Mean | 0.783 | Large between-person differences |
+| Awakenings | 0.750 | Large between-person differences |
+| WOMAC Pain | 0.741 | Moderate between-person differences |
+| Total Sleep Time | 0.732 | Moderate between-person differences |
+| Sleep Efficiency | 0.704 | Moderate between-person differences |
+| WOMAC Stiffness | 0.697 | Moderate between-person differences |
+| DSIS | 0.666 | Moderate between-person differences |
+| WASO | 0.637 | Moderate between-person differences |
+| Sleep Fragmentation | 0.577 | Moderate between-person differences |
+| PGAOA | 0.565 | Moderate between-person differences |
+
+
+
+Even after restricting analysis to the first 6 waves to minimize trending effects, people still differ systematically in their stable average levels across variables, and these between-person differences can contaminate estimates of within-person causal processes. For example, Person A might consistently average 8 hours of sleep and 3/10 pain across all 6 waves, while Person B consistently averages 5 hours of sleep and 7/10 pain. When a standard CLPM analyzes this data, it sees that higher sleep values tend to co-occur with lower pain values and incorrectly concludes that "sleep improvements cause pain reductions." However, this correlation actually reflects stable between-person differences rather than true within-person causal dynamics—Person A is simply a different type of person (good sleeper, low pain) compared to Person B (poor sleeper, high pain). The RI-CLPM addresses this by estimating and removing each person's stable average level (their "random intercept") before examining cross-lagged relationships, ensuring that the resulting estimates reflect genuine within-person fluctuations around each individual's personal baseline rather than contamination from stable trait-like differences between people.
 
 # RI-CLPM Analysis: Sleep and Pain
 
