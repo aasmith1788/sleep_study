@@ -20,7 +20,7 @@ sleep_metrics  <- c("efficiency_mean",
 pain_var       <- "koos_pain"
 keep_weeks     <- c(0, 9, 18)  # Changed to 3 strategic timepoints
 n_waves        <- 3            # Changed from 6 to 3
-standardize_xy <- TRUE
+standardize_xy <- FALSE
 max_iter       <- 10000
 
 ## --------------------------- 2. Load & Basic Clean --------------------
@@ -96,7 +96,7 @@ build_ri_clpm_yamada <- function(x_obs, y_obs, fix_pain_ri_variance = TRUE) {
 }
 
 fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
-                         standardize_xy = TRUE,
+                         standardize_xy = FALSE,
                          fix_pain_ri_variance = TRUE,
                          max_iter = 10000) {
   
