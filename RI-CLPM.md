@@ -1,0 +1,5 @@
+three time points work because when trends are linear and consistent across people—like everyone improving at a steady rate—the person’s mean across those three points falls right in the center of the linear trend. That means the random intercept in the RI-CLPM absorbs the trend almost perfectly. Once that intercept is removed from the observed scores, what’s left are residuals that no longer contain the overall increase or decrease. They’re just deviations above or below each person’s own linear path.
+
+With more than three points, that no longer holds. A participant’s mean might no longer align with the middle of the trend if the slope bends slightly, if the trajectory isn’t perfectly linear, or if the variance isn’t spread symmetrically. So the random intercept can’t fully absorb the trend, and the residuals still contain some of it. That contaminates the cross-lagged estimates.
+
+But with three points and smooth linear change, the mean is the midpoint. So subtracting that mean effectively removes the trend. That’s why three waves worked in Yamada’s case and let the RI-CLPM isolate short-term dynamics without modeling the long-term improvement.
