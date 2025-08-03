@@ -78,12 +78,7 @@ build_ri_clpm_yamada <- function(x_obs, y_obs, fix_pain_ri_variance = TRUE) {
       "wX", i, " ~ 0*1\n",
       "wY", i, " ~ 0*1\n",
       x_obs[i], " ~~ 0*", x_obs[i], "\n",
-      y_obs[i], " ~~ 0*", y_obs[i], "\n"
-    )
-  }
-  for (i in seq_len(n)) {
-    syn <- paste0(
-      syn,
+      y_obs[i], " ~~ 0*", y_obs[i], "\n",
       "wX", i, " ~~ wX", i, "\n",
       "wY", i, " ~~ wY", i, "\n",
       "wX", i, " ~~ cxy", i, "*wY", i, "\n"
@@ -138,7 +133,7 @@ fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
              estimator = "MLR",
              control = ctrl)
 
-  used_fixed_pain_ri <- TRUE
+  fixed_pain_ri <- TRUE
 
   pe <- parameterEstimates(fit, standardized = TRUE)
 
@@ -161,7 +156,7 @@ fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
                 names_sep = "_") %>%
     mutate(
       sleep_metric  = sleep_var,
-      fixed_pain_ri = used_fixed_pain_ri,
+      fixed_pain_ri = fixed_pain_ri,
       ri_cov_est    = ri_cov$ri_cov_est,
       ri_cov_se     = ri_cov$ri_cov_se,
       ri_cov_p      = ri_cov$ri_cov_p,
@@ -177,7 +172,7 @@ fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
   summary_row <- summary_row %>% mutate(icc_sleep = icc_x)
 
   list(fit = fit,
-       fixed_pain_ri = used_fixed_pain_ri,
+       fixed_pain_ri = fixed_pain_ri,
        summary = summary_row)
 }
 
