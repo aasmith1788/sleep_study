@@ -56,60 +56,6 @@ reshape_wide <- function(df, vars, n_waves) {
 
 obs_names <- function(base, n) paste0(base, "_w", 1:n)
 
-build_ri_clpm_yamada <- function(x_obs, y_obs, stationary = TRUE) {
-  n <- length(x_obs)
-  syn <- ""
-  syn <- paste0(
-    syn,
-    "RI_X =~ ", paste0("1*", x_obs, collapse=" + "), "\n",
-    "RI_Y =~ ", paste0("1*", y_obs, collapse=" + "), "\n",
-    "RI_X ~~ RI_X\nRI_Y ~~ RI_Y\nRI_X ~~ RI_Y\n",
-    "RI_X ~ 1\nRI_Y ~ 1\n"
-  )
-  for (i in seq_len(n)) {
-    syn <- paste0(
-      syn,
-      "wX", i, " =~ 1*", x_obs[i], "\n",
-      "wY", i, " =~ 1*", y_obs[i], "\n",
-      "RI_X ~~ 0*wX", i, "\n",
-      "RI_Y ~~ 0*wY", i, "\n",
-      "wX", i, " ~ 0*1\n",
-      "wY", i, " ~ 0*1\n",
-      x_obs[i], " ~~ 0*", x_obs[i], "\n",
-      y_obs[i], " ~~ 0*", y_obs[i], "\n"
-    )
-  }
-  syn <- paste0(syn, "wX1 ~~ wX1\nwY1 ~~ wY1\nwX1 ~~ wY1\n")
-  
-  # With only 3 waves, we have just 2 cross-lagged transitions
-  if (stationary) {
-    for (i in 2:n) {
-      p <- i - 1
-      syn <- paste0(
-        syn,
-        "wX", i, " ~ a*wX", p, " + b*wY", p, "\n",
-        "wY", i, " ~ c*wY", p, " + d*wX", p, "\n",
-        "wX", i, " ~~ cxy*wY", i, "\n",
-        "wX", i, " ~~ wX", i, "\n",
-        "wY", i, " ~~ wY", i, "\n"
-      )
-    }
-  } else {
-    for (i in 2:n) {
-      p <- i - 1
-      syn <- paste0(
-        syn,
-        "wX", i, " ~ a", i, "*wX", p, " + b", i, "*wY", p, "\n",
-        "wY", i, " ~ c", i, "*wY", p, " + d", i, "*wX", p, "\n",
-        "wX", i, " ~~ cxy", i, "*wY", i, "\n",
-        "wX", i, " ~~ wX", i, "\n",
-        "wY", i, " ~~ wY", i, "\n"
-      )
-    }
-  }
-  syn
-}
-
 build_ri_clpm_relaxed <- function(x_obs, y_obs) {
   n <- length(x_obs)
   syn <- ""
@@ -351,8 +297,7 @@ print(full_summary)
 # Check which models had issues
 cat("\n=== MODEL CONVERGENCE CHECK ===\n")
 for (sv in sleep_metrics) {
-  converged <- lavInspect(all_results[[sv]]$fit, "converged")
-  cat(sv, "- Converged:", converged, "\n")
+  cat(sv, "- Converged:", lavInspect(all_results[[sv]]$fit, "converged"), "\n")
 }
 
 # Compare to Yamada's results
