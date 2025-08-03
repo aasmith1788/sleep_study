@@ -20,8 +20,7 @@ sleep_metrics  <- c("efficiency_mean",
 pain_var       <- "koos_pain"
 keep_weeks     <- c(0, 9, 18)  # Changed to 3 strategic timepoints
 n_waves        <- 3            # Changed from 6 to 3
-standardize_xy <- TRUE       
-stationary     <- TRUE       
+standardize_xy <- TRUE
 max_iter       <- 10000
 
 ## --------------------------- 2. Load & Basic Clean --------------------
@@ -57,7 +56,7 @@ reshape_wide <- function(df, vars, n_waves) {
 
 obs_names <- function(base, n) paste0(base, "_w", 1:n)
 
-build_ri_clpm <- function(x_obs, y_obs, stationary = TRUE) {
+build_ri_clpm_yamada <- function(x_obs, y_obs, stationary = TRUE) {
   n <- length(x_obs)
   syn <- ""
   syn <- paste0(
@@ -111,9 +110,51 @@ build_ri_clpm <- function(x_obs, y_obs, stationary = TRUE) {
   syn
 }
 
+build_ri_clpm_relaxed <- function(x_obs, y_obs) {
+  n <- length(x_obs)
+  syn <- ""
+  syn <- paste0(
+    syn,
+    "RI_X =~ ", paste0("1*", x_obs, collapse=" + "), "\n",
+    "RI_Y =~ ", paste0("1*", y_obs, collapse=" + "), "\n",
+    "RI_X ~~ RI_X\nRI_Y ~~ 0*RI_Y\nRI_X ~~ RI_Y\n",
+    "RI_X ~ 1\nRI_Y ~ 1\n"
+  )
+  for (i in seq_len(n)) {
+    syn <- paste0(
+      syn,
+      "wX", i, " =~ 1*", x_obs[i], "\n",
+      "wY", i, " =~ 1*", y_obs[i], "\n",
+      "RI_X ~~ 0*wX", i, "\n",
+      "RI_Y ~~ 0*wY", i, "\n",
+      "wX", i, " ~ 0*1\n",
+      "wY", i, " ~ 0*1\n",
+      x_obs[i], " ~~ 0*", x_obs[i], "\n",
+      y_obs[i], " ~~ 0*", y_obs[i], "\n"
+    )
+  }
+  syn <- paste0(
+    syn,
+    "wX1 ~~ vx*wX1\n",
+    "wX2 ~~ vx*wX2\n",
+    "wX3 ~~ vx*wX3\n",
+    "wY1 ~~ vy*wY1\n",
+    "wY2 ~~ vy*wY2\n",
+    "wY3 ~~ vy*wY3\n",
+    "wX1 ~~ cxy1*wY1\n"
+  )
+  syn <- paste0(
+    syn,
+    "wX2 ~ a2*wX1 + b2*wY1\n",
+    "wY2 ~ c2*wY1 + d2*wX1\n",
+    "wX3 ~ a3*wX2 + b3*wY2\n",
+    "wY3 ~ c3*wY2 + d3*wX2\n"
+  )
+  syn
+}
+
 fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
                          standardize_xy = TRUE,
-                         stationary = TRUE,
                          max_iter = 10000) {
   
   df_pair <- dat_long %>%
@@ -139,67 +180,28 @@ fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
   x_obs <- obs_names(sleep_var, n_waves)
   y_obs <- obs_names(pain_var,  n_waves)
   
-  syntax_stat  <- build_ri_clpm(x_obs, y_obs, stationary = TRUE)
+  syntax_relaxed <- build_ri_clpm_relaxed(x_obs, y_obs)
   ctrl <- list(iter.max = max_iter)
-  
-  fit_stat <- try(
-    sem(model = syntax_stat,
-        data = dat_wide,
-        missing = "fiml",
-        estimator = "MLR",
-        control = ctrl),
-    silent = TRUE
-  )
-  
-  used_stationary <- TRUE
-  if (inherits(fit_stat, "try-error") || !lavInspect(fit_stat, "converged")) {
-    syntax_un <- build_ri_clpm(x_obs, y_obs, stationary = FALSE)
-    fit_stat <- sem(model = syntax_un,
-                    data = dat_wide,
-                    missing = "fiml",
-                    estimator = "MLR",
-                    control = ctrl)
-    used_stationary <- FALSE
-    if (!lavInspect(fit_stat, "converged"))
-      stop(paste("Model failed to converge even unconstrained for", sleep_var))
-  }
-  
+
+  fit_stat <- sem(model = syntax_relaxed,
+                  data = dat_wide,
+                  missing = "fiml",
+                  estimator = "MLR",
+                  control = ctrl)
+  if (!lavInspect(fit_stat, "converged"))
+    stop(paste("Model failed to converge for", sleep_var))
+
   pe <- parameterEstimates(fit_stat, standardized = TRUE)
-  
-  if (used_stationary) {
-    grabs <- tibble(
-      param = c("a","b","c","d"),
-      est   = sapply(c("a","b","c","d"), \(lab) pe$std.all[match(lab, pe$label)]),
-      se    = sapply(c("a","b","c","d"), \(lab) pe$se[match(lab, pe$label)]),
-      p     = sapply(c("a","b","c","d"), \(lab) pe$pvalue[match(lab, pe$label)])
-    )
-  } else {
-    # For 3 waves, we might have a2,b2,c2,d2 and a3,b3,c3,d3
-    pull_multi <- function(prefix) {
-      rows <- pe %>% filter(grepl(paste0("^", prefix, "[0-9]"), label))
-      if(nrow(rows) == 0) return(list(mean_std = NA, any_sig = NA))
-      tibble(
-        lags = paste(rows$label, collapse=";"),
-        mean_std = mean(rows$std.all, na.rm = TRUE),
-        any_sig = any(rows$pvalue < .05, na.rm = TRUE)
-      )
-    }
-    grabs <- tibble(
-      param = c("a","b","c","d"),
-      est   = NA_real_,
-      se    = NA_real_,
-      p     = NA_real_
-    )
-    a_info <- pull_multi("a")
-    b_info <- pull_multi("b")
-    c_info <- pull_multi("c")
-    d_info <- pull_multi("d")
-    grabs$est <- c(a_info$mean_std, b_info$mean_std, c_info$mean_std, d_info$mean_std)
-    grabs$p   <- c(ifelse(is.na(a_info$any_sig), NA, as.numeric(a_info$any_sig)),
-                   ifelse(is.na(b_info$any_sig), NA, as.numeric(b_info$any_sig)),
-                   ifelse(is.na(c_info$any_sig), NA, as.numeric(c_info$any_sig)),
-                   ifelse(is.na(d_info$any_sig), NA, as.numeric(d_info$any_sig)))
+
+  grab_param <- function(lab) {
+    idx <- which(pe$label == lab)
+    if (length(idx) == 0) return(tibble(param = lab, est = NA_real_, se = NA_real_, p = NA_real_))
+    tibble(param = lab,
+           est = pe$std.all[idx][1],
+           se = pe$se[idx][1],
+           p = pe$pvalue[idx][1])
   }
+  grabs <- map_dfr(c("a2","b2","c2","d2","a3","b3","c3","d3","vx","vy","cxy1"), grab_param)
   
   ri_cov <- pe %>%
     filter(lhs == "RI_X", rhs == "RI_Y", op == "~~") %>%
@@ -211,7 +213,6 @@ fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
                 names_sep = "_") %>%
     mutate(
       sleep_metric = sleep_var,
-      stationary   = used_stationary,
       ri_cov_est   = ri_cov$ri_cov_est,
       ri_cov_se    = ri_cov$ri_cov_se,
       ri_cov_p     = ri_cov$ri_cov_p,
@@ -225,9 +226,8 @@ fit_one_pair <- function(sleep_var, pain_var, dat_long, n_waves,
   icc_x <- var_ri_x / var_total_x
   
   summary_row <- summary_row %>% mutate(icc_sleep = icc_x)
-  
+
   list(fit = fit_stat,
-       stationary = used_stationary,
        summary = summary_row)
 }
 
@@ -244,7 +244,6 @@ for (sv in sleep_metrics) {
     dat_long       = dat,
     n_waves        = n_waves,
     standardize_xy = standardize_xy,
-    stationary     = stationary,
     max_iter       = max_iter
   )
 }
@@ -258,13 +257,24 @@ print(ri_results_summary)
 # Quick readable interpretation lines (matching Yamada's presentation)
 interpret <- ri_results_summary %>%
   mutate(
-    pain_to_sleep_sig  = ifelse(p_b < .05, "YES", "no"),
-    sleep_to_pain_sig  = ifelse(p_d < .05, "YES", "no")
+    a2_sig = ifelse(p_a2 < .05, "YES", "no"),
+    b2_sig = ifelse(p_b2 < .05, "YES", "no"),
+    c2_sig = ifelse(p_c2 < .05, "YES", "no"),
+    d2_sig = ifelse(p_d2 < .05, "YES", "no"),
+    a3_sig = ifelse(p_a3 < .05, "YES", "no"),
+    b3_sig = ifelse(p_b3 < .05, "YES", "no"),
+    c3_sig = ifelse(p_c3 < .05, "YES", "no"),
+    d3_sig = ifelse(p_d3 < .05, "YES", "no")
   ) %>%
   select(sleep_metric,
-         b_est = est_b, b_p = p_b, pain_to_sleep_sig,
-         d_est = est_d, d_p = p_d, sleep_to_pain_sig,
-         a_est = est_a, c_est = est_c,
+         est_a2, p_a2, a2_sig,
+         est_b2, p_b2, b2_sig,
+         est_c2, p_c2, c2_sig,
+         est_d2, p_d2, d2_sig,
+         est_a3, p_a3, a3_sig,
+         est_b3, p_b3, b3_sig,
+         est_c3, p_c3, c3_sig,
+         est_d3, p_d3, d3_sig,
          ri_cov_std, icc_sleep)
 
 cat("\n=== Cross-Lag Significance Overview (3-wave analysis like Yamada) ===\n")
@@ -329,12 +339,8 @@ fit_indices_summary <- bind_rows(fit_indices_list)
 # Continue with the rest...
 full_summary <- ri_results_summary %>%
   left_join(fit_indices_summary, by = "sleep_metric") %>%
-  relocate(sleep_metric, stationary,
-           N,
-           chisq, df, pvalue, cfi, tli, rmsea, srmr, aic, bic,
-           est_a, se_a, p_a, est_c, se_c, p_c,
-           est_b, se_b, p_b, est_d, se_d, p_d,
-           ri_cov_est, ri_cov_se, ri_cov_p, ri_cov_std, icc_sleep)
+  relocate(sleep_metric, N,
+           chisq, df, pvalue, cfi, tli, rmsea, srmr, aic, bic)
 
 cat("\n=== MODEL FIT INDICES (3-wave RI-CLPM per sleep metric) ===\n")
 print(fit_indices_summary)
@@ -346,7 +352,7 @@ print(full_summary)
 cat("\n=== MODEL CONVERGENCE CHECK ===\n")
 for (sv in sleep_metrics) {
   converged <- lavInspect(all_results[[sv]]$fit, "converged")
-  cat(sv, "- Converged:", converged, "- Used stationary:", all_results[[sv]]$stationary, "\n")
+  cat(sv, "- Converged:", converged, "\n")
 }
 
 # Compare to Yamada's results
