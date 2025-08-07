@@ -123,26 +123,22 @@ fit <- ctStanFit(
   verbose     = FALSE
 )
 
-fit_summary <- summary(fit, digits = 3)
-paramtab <- fit_summary$parmatrices
+ diag_raw <- rstan::summary(fit$stanfit)$summary
+diag_table <- as.data.frame(diag_raw)[, c("Rhat", "n_eff")]
+diag_table$param_name <- rownames(diag_raw)
+diag_table <- diag_table[, c("param_name", "Rhat", "n_eff")]
 
-diag_table <- paramtab
-if ("param" %in% names(diag_table)) {
-  diag_table <- diag_table %>% mutate(param_name = param)
-} else {
-  diag_table <- diag_table %>% mutate(param_name = paste(matrix, row, col, sep = "_"))
-}
-diag_table <- diag_table %>% select(param_name, Rhat, n_eff)
+ cat("=== PARAMETER DIAGNOSTICS ===\n")
+ print(diag_table, row.names = FALSE)
 
-cat("=== PARAMETER DIAGNOSTICS ===\n")
-print(diag_table, row.names = FALSE)
+ if (any(diag_table$Rhat > 1.01)) {
+   stop("R-hat exceeds 1.01 for some parameters")
+ }
+ if (any(diag_table$n_eff < 400)) {
+   stop("Effective sample size below 400 for some parameters")
+ }
 
-if (any(diag_table$Rhat > 1.01)) {
-  stop("R-hat exceeds 1.01 for some parameters")
-}
-if (any(diag_table$n_eff < 400)) {
-  stop("Effective sample size below 400 for some parameters")
-}
+ paramtab <- summary(fit, digits = 3)$parmatrices
 
 # ===========================================================
 # 6. Extract and label dynamic parameters
