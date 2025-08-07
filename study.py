@@ -1,92 +1,83 @@
-# -------------------------------------------------------------------
-# Bidirectional weekly dynamics of sleep efficiency and knee pain
-# This cell installs packages, ingests the CSV, prepares the panel,
-# and estimates frequentist and Bayesian cross-lagged models.
-# -------------------------------------------------------------------
+library(dplyr)
+library(readr)
 
-# 0. install required libraries (run only once per environment)
-import sys, subprocess, importlib
-def install(pkg):
-    if importlib.util.find_spec(pkg) is None:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", pkg])
+file_path <- "C:/Users/aasmi/Downloads/gt9x_sleep_dsis_koos_pgaoa_weekly (1).csv"
 
-for p in ["pandas", "numpy", "statsmodels", "bambi", "pymc", "arviz", "matplotlib"]:
-    install(p)
+raw <- read_csv(file_path, show_col_types = FALSE)
 
-# 1. imports
-import warnings, pandas as pd, numpy as np, statsmodels.formula.api as smf
-import bambi as bmb, arviz as az, matplotlib.pyplot as plt
-warnings.filterwarnings("ignore", category=FutureWarning)
+panel <- raw %>%
+  select(id       = record_id,
+         time     = redcap_event_name,   # weekly stamp
+         sleep    = Efficiency_Mean,
+         pain     = koos_pain) %>%
+  mutate(across(c(sleep, pain), as.numeric)) %>%           # coerce to numeric
+  arrange(id, time) %>%
+  group_by(id) %>%
+  mutate(week     = row_number() - 1,                      # 0,1,2…
+         sleep_c  = sleep - mean(sleep, na.rm = TRUE),
+         pain_c   = pain  - mean(pain,  na.rm = TRUE)) %>%
+  ungroup()
 
-# 2. file location (adjust if you renamed or moved it)
-DATA_PATH = "C:\\Users\\aasmi\\Downloads\\gt9x_sleep_dsis_koos_pgaoa_weekly (1).csv"
+print(head(panel, 10))   # inspect first 10 cleaned rows
 
-# 3. read and inspect headers
-df_raw = pd.read_csv(DATA_PATH)
-print("Columns found:", list(df_raw.columns))
+cat("\nMissing after coercion → sleep:",
+    sum(is.na(panel$sleep)), " | pain:", sum(is.na(panel$pain)), "\n")
 
-# 4. standardise expected column names
-rename_map = {}
-if "redcap_event_name" in df_raw.columns and "redcap_event" not in df_raw.columns:
-    rename_map["redcap_event_name"] = "redcap_event"
-if rename_map:
-    df_raw = df_raw.rename(columns=rename_map)
+# ===========================================================
+# 2. collapse duplicate person-weeks and rebuild centred series
+# ===========================================================
+panel_clean <- panel %>%
+  group_by(id, week) %>%                               # average any duplicates
+  summarise(
+    sleep = mean(sleep, na.rm = TRUE),
+    pain  = mean(pain,  na.rm = TRUE),
+    .groups = "drop") %>%
+  group_by(id) %>%
+  mutate(
+    sleep_c = sleep - mean(sleep, na.rm = TRUE),
+    pain_c  = pain  - mean(pain,  na.rm = TRUE)
+  ) %>%
+  ungroup()
 
-needed = ["record_id", "redcap_event", "Efficiency_Mean", "koos_pain"]
-df = df_raw.loc[:, needed].copy()
+cat("Rows after averaging duplicates:", nrow(panel_clean), "\n")
+cat("Remaining missing values → sleep:", sum(is.na(panel_clean$sleep)),
+    "| pain:", sum(is.na(panel_clean$pain)), "\n\n")
 
-# 5. de-duplicate accidental repeats by averaging numeric values
-df = (df
-      .groupby(["record_id", "redcap_event"], as_index=False)
-      .agg({"Efficiency_Mean": "mean", "koos_pain": "mean"}))
+# ===========================================================
+# 3. build and fit the continuous-time DSEM with numeric starts
+# ===========================================================
+library(ctsem)
 
-# 6. sort and create centred variables and one-week lags
-df = df.sort_values(["record_id", "redcap_event"]).reset_index(drop=True)
-df["sleep_c"] = df.groupby("record_id")["Efficiency_Mean"].transform(lambda x: x - x.mean())
-df["pain_c"]  = df.groupby("record_id")["koos_pain"].transform(lambda x: x - x.mean())
-df["sleep_c_lag"] = df.groupby("record_id")["sleep_c"].shift(1)
-df["pain_c_lag"]  = df.groupby("record_id")["pain_c"].shift(1)
-d = df.dropna(subset=["sleep_c", "pain_c", "sleep_c_lag", "pain_c_lag"]).copy()
+ctmodel <- ctModel(
+  type          = "stanct",
+  manifestNames = c("sleep_c", "pain_c"),
+  latentNames   = c("sleep",   "pain"),
+  LAMBDA        = diag(2),
+  DRIFT         = matrix(c("ar_s","cl_ps",
+                           "cl_sp","ar_p"), 2, 2, byrow = TRUE),
+  CINT          = matrix(c("trend_s","trend_p"), 2, 1),
+  DIFFUSION     = diag(c(0.1, 0.1)),     # numeric starting values
+  MANIFESTVAR   = diag(c(1.0, 1.0)),     # numeric starting values
+  T0MEANS       = matrix(c(0, 0), 2, 1), # numeric starting values
+  T0VAR         = diag(c(1.0, 1.0))      # numeric starting values
+)
 
-print(f"\nAfter cleaning: {d.shape[0]} person-weeks from {d['record_id'].nunique()} participants")
+fit <- ctStanFit(
+  datalong    = panel_clean %>% select(id, time = week, sleep_c, pain_c),
+  ctstanmodel = ctmodel,
+  chains      = 4,
+  cores       = 4,
+  iter        = 4000,
+  control     = list(adapt_delta = 0.95),
+  verbose     = FALSE
+)
 
-# 7. frequentist mixed-effects cross-lag
-sleep_eq = "sleep_c ~ sleep_c_lag + pain_c_lag"
-pain_eq  = "pain_c  ~ pain_c_lag + sleep_c_lag"
-sleep_ml = smf.mixedlm(sleep_eq, d, groups=d["record_id"]).fit(reml=False)
-pain_ml  = smf.mixedlm(pain_eq,  d, groups=d["record_id"]).fit(reml=False)
+# ===========================================================
+# 4. extract the six dynamic paths and weekly trends
+# ===========================================================
+full     <- summary(fit, digits = 3)
+paramtab <- full$parmatrices                 # <-- correct table
+wanted   <- c("ar_s","ar_p","cl_ps","cl_sp","trend_s","trend_p")
 
-print("\n=== Maximum-likelihood mixed-effects results ===\n")
-print(sleep_ml.summary())
-print("\n")
-print(pain_ml.summary())
-
-# 8. Bayesian Dynamic SEM via Bambi / PyMC
-priors = {
-    "Intercept"   : bmb.Prior("Normal", mu=0, sigma=1),
-    "sleep_c_lag" : bmb.Prior("Normal", mu=0, sigma=0.5),
-    "pain_c_lag"  : bmb.Prior("Normal", mu=0, sigma=0.5),
-    "Group SD"    : bmb.Prior("HalfCauchy", beta=1),
-    "Sigma"       : bmb.Prior("HalfCauchy", beta=1),
-}
-
-print("\nRunning Bayesian models; this will take a couple of minutes…")
-mod_sleep = bmb.Model(sleep_eq + " + (1|record_id)", d, priors=priors)
-idata_slp = mod_sleep.fit(draws=2000, tune=2000, chains=4, target_accept=0.9, progressbar=False)
-
-mod_pain  = bmb.Model(pain_eq  + " + (1|record_id)", d, priors=priors)
-idata_pai = mod_pain.fit(draws=2000, tune=2000, chains=4, target_accept=0.9, progressbar=False)
-
-print("\n=== Bayesian posterior summaries (means and 95% HDIs) ===\n")
-print("Sleep equation")
-print(az.summary(idata_slp, var_names=["sleep_c_lag", "pain_c_lag"], hdi_prob=0.95))
-print("\nPain equation")
-print(az.summary(idata_pai, var_names=["pain_c_lag", "sleep_c_lag"], hdi_prob=0.95))
-
-# 9. quick posterior-predictive checks
-fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-az.plot_ppc(idata_slp, var_names=["sleep_c"], num_pp_samples=500, ax=axes[0])
-axes[0].set_title("PPC: Sleep equation")
-az.plot_ppc(idata_pai, var_names=["pain_c"],  num_pp_samples=500, ax=axes[1])
-axes[1].set_title("PPC: Pain equation")
-plt.tight_layout(); plt.show()
+dynamic  <- paramtab[paramtab$param %in% wanted, ]   # filter six paths + trends
+print(dynamic, row.names = FALSE)
