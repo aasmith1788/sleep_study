@@ -79,5 +79,7 @@ full     <- summary(fit, digits = 3)
 paramtab <- full$parmatrices                 # <-- correct table
 wanted   <- c("ar_s","ar_p","cl_ps","cl_sp","trend_s","trend_p")
 
-dynamic  <- paramtab[paramtab$param %in% wanted, ]   # filter six paths + trends
+name_col <- intersect(c("param", "label", "name"), colnames(paramtab))[1]
+if (is.na(name_col)) stop("No parameter label column found.")
+dynamic  <- paramtab[paramtab[[name_col]] %in% wanted, ]
 print(dynamic, row.names = FALSE)
