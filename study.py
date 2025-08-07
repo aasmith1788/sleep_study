@@ -35,6 +35,10 @@ if rename_map:
 needed = ["record_id", "redcap_event", "Efficiency_Mean", "koos_pain"]
 df = df_raw.loc[:, needed].copy()
 
+# ensure numeric columns are parsed as numbers
+for col in ["Efficiency_Mean", "koos_pain"]:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+
 # 5. de-duplicate accidental repeats by averaging numeric values
 df = (df
       .groupby(["record_id", "redcap_event"], as_index=False)
