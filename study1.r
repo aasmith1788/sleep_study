@@ -2,6 +2,8 @@ library(dplyr)
 library(readr)
 library(ctsem)
 
+set.seed(123)
+
 # ===========================================================
 # 1. Load and prepare data
 # ===========================================================
@@ -83,10 +85,12 @@ cat("Remaining rows after filtering for consecutive weeks:", nrow(panel_clean), 
 # 4. Remove outliers (z > 3 or z < -3 in sleep or pain)
 # ===========================================================
 panel_clean <- panel_clean %>%
+  group_by(id) %>%
   mutate(
     z_sleep = (sleep - mean(sleep, na.rm = TRUE)) / sd(sleep, na.rm = TRUE),
     z_pain  = (pain  - mean(pain,  na.rm = TRUE)) / sd(pain,  na.rm = TRUE)
   ) %>%
+  ungroup() %>%
   filter(abs(z_sleep) <= 3, abs(z_pain) <= 3) %>%
   select(-z_sleep, -z_pain)
 
@@ -103,7 +107,7 @@ ctmodel <- ctModel(
   DRIFT         = matrix(c("ar_s","cl_ps",
                            "cl_sp","ar_p"), 2, 2, byrow = TRUE),
   CINT          = matrix(c("trend_s","trend_p"), 2, 1),
-  DIFFUSION     = diag(c(0.1, 0.1)),
+  DIFFUSION     = diag(c("diff_sleep", "diff_pain")),
   MANIFESTVAR   = diag(c(1.0, 1.0)),
   T0MEANS       = matrix(c(0, 0), 2, 1),
   T0VAR         = diag(c(1.0, 1.0))
@@ -119,12 +123,30 @@ fit <- ctStanFit(
   verbose     = FALSE
 )
 
+fit_summary <- summary(fit, digits = 3)
+paramtab <- fit_summary$parmatrices
+
+diag_table <- paramtab
+if ("param" %in% names(diag_table)) {
+  diag_table <- diag_table %>% mutate(param_name = param)
+} else {
+  diag_table <- diag_table %>% mutate(param_name = paste(matrix, row, col, sep = "_"))
+}
+diag_table <- diag_table %>% select(param_name, Rhat, n_eff)
+
+cat("=== PARAMETER DIAGNOSTICS ===\n")
+print(diag_table, row.names = FALSE)
+
+if (any(diag_table$Rhat > 1.01)) {
+  stop("R-hat exceeds 1.01 for some parameters")
+}
+if (any(diag_table$n_eff < 400)) {
+  stop("Effective sample size below 400 for some parameters")
+}
+
 # ===========================================================
 # 6. Extract and label dynamic parameters
 # ===========================================================
-full     <- summary(fit, digits = 3)
-paramtab <- full$parmatrices
-
 dynamic <- paramtab %>%
   filter(matrix %in% c("DRIFT", "CINT")) %>%
   mutate(param_label = case_when(
@@ -171,5 +193,8 @@ print(na_counts)
 used_weeks <- panel_clean %>% pull(week) %>% unique() %>% sort()
 cat("Total unique weeks modeled:", length(used_weeks), "\n")
 cat("Weeks used:", paste(used_weeks, collapse = ", "), "\n")
+
+cat("\nSession information:\n")
+print(sessionInfo())
 
 
