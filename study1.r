@@ -26,19 +26,13 @@ panel <- raw %>%
     week  = as.integer(time)             # CHANGED: use actual week numbers
   ) %>%
   filter(!is.na(week)) %>%                   # CHANGED: drop rows with missing week
-  arrange(id, week) %>%                      # CHANGED: sort by actual week
-  group_by(id) %>%
-  mutate(
-    sleep_c  = sleep - mean(sleep, na.rm = TRUE),
-    pain_c   = pain  - mean(pain,  na.rm = TRUE)
-  ) %>%
-  ungroup()
+  arrange(id, week)                          # CHANGED: sort by actual week
 
 cat("\nMissing after coercion → sleep:",
     sum(is.na(panel$sleep)), " | pain:", sum(is.na(panel$pain)), "\n")
 
 # ===========================================================
-# 2. Collapse duplicate person-weeks and rebuild centred series
+# 2. Collapse duplicate person-weeks
 # ===========================================================
 panel_clean <- panel %>%
   group_by(id, week) %>%
@@ -46,46 +40,11 @@ panel_clean <- panel %>%
     sleep = mean(sleep, na.rm = TRUE),
     pain  = mean(pain,  na.rm = TRUE),
     .groups = "drop"
-  ) %>%
-  group_by(id) %>%
-  mutate(
-    sleep_c = sleep - mean(sleep, na.rm = TRUE),
-    pain_c  = pain  - mean(pain,  na.rm = TRUE)
-  ) %>%
-  ungroup()
+  )
 
 cat("Rows after averaging duplicates:", nrow(panel_clean), "\n")
 cat("Remaining missing values → sleep:",
     sum(is.na(panel_clean$sleep)), "| pain:", sum(is.na(panel_clean$pain)), "\n\n")
-
-# ===========================================================
-# 2.5. STANDARDIZE MANIFEST VARIABLES ACROSS POOLED SAMPLE
-# ===========================================================
-cat("=== STANDARDIZING MANIFEST VARIABLES ===\n")
-
-# Calculate pooled sample statistics for person-centered variables
-sleep_c_pooled_mean <- mean(panel_clean$sleep_c, na.rm = TRUE)
-sleep_c_pooled_sd <- sd(panel_clean$sleep_c, na.rm = TRUE)
-pain_c_pooled_mean <- mean(panel_clean$pain_c, na.rm = TRUE)
-pain_c_pooled_sd <- sd(panel_clean$pain_c, na.rm = TRUE)
-
-cat("Pre-standardization pooled statistics:\n")
-cat("  sleep_c: M =", round(sleep_c_pooled_mean, 4), ", SD =", round(sleep_c_pooled_sd, 4), "\n")
-cat("  pain_c:  M =", round(pain_c_pooled_mean, 4), ", SD =", round(pain_c_pooled_sd, 4), "\n")
-
-# Standardize to pooled sample mean=0, SD=1
-panel_clean <- panel_clean %>%
-  mutate(
-    sleep_c = (sleep_c - sleep_c_pooled_mean) / sleep_c_pooled_sd,
-    pain_c  = (pain_c  - pain_c_pooled_mean)  / pain_c_pooled_sd
-  )
-
-# Verify standardization
-cat("\nPost-standardization pooled statistics:\n")
-cat("  sleep_c: M =", round(mean(panel_clean$sleep_c, na.rm = TRUE), 4), 
-    ", SD =", round(sd(panel_clean$sleep_c, na.rm = TRUE), 4), "\n")
-cat("  pain_c:  M =", round(mean(panel_clean$pain_c, na.rm = TRUE), 4), 
-    ", SD =", round(sd(panel_clean$pain_c, na.rm = TRUE), 4), "\n\n")
 
 # ===========================================================
 # 3. Keep only participants with sufficient short-gap week pairs
@@ -157,6 +116,24 @@ panel_clean <- panel_clean %>%
 
 # Report removal
 cat("Rows removed:", n_before - nrow(panel_clean), "\n")
+
+# Center within person and standardize across pooled sample
+panel_clean <- panel_clean %>%
+  group_by(id) %>%
+  mutate(
+    sleep_c = sleep - mean(sleep, na.rm = TRUE),
+    pain_c  = pain  - mean(pain,  na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+sleep_m <- mean(panel_clean$sleep_c, na.rm = TRUE); sleep_s <- sd(panel_clean$sleep_c, na.rm = TRUE)
+pain_m  <- mean(panel_clean$pain_c,  na.rm = TRUE); pain_s  <- sd(panel_clean$pain_c,  na.rm = TRUE)
+
+panel_clean <- panel_clean %>%
+  mutate(
+    sleep_c = (sleep_c - sleep_m) / sleep_s,
+    pain_c  = (pain_c  - pain_m)  / pain_s
+  )
 # ===========================================================
 # 5. SANITY CHECK: Print within-ID week differences
 # ===========================================================
@@ -179,6 +156,8 @@ cat("Range of differences:", min(week_diffs), "to", max(week_diffs), "\n\n")
 # ===========================================================
 # 6. Build and fit the continuous-time model
 # ===========================================================
+datalong <- panel_clean %>% select(id, time = week, sleep_c, pain_c) %>% drop_na()
+
 ctmodel <- ctModel(
   type          = "stanct",
   manifestNames = c("sleep_c", "pain_c"),
@@ -194,7 +173,7 @@ ctmodel <- ctModel(
 )
 
 fit <- ctStanFit(
-  datalong    = panel_clean %>% select(id, time = week, sleep_c, pain_c),
+  datalong    = datalong,
   ctstanmodel = ctmodel,
   chains      = 4,
   cores       = 4,
@@ -247,7 +226,7 @@ week_counts <- panel_clean %>%
 cat("Weeks per participant (min / median / max):",
     min(week_counts$n_weeks), "/", median(week_counts$n_weeks), "/", max(week_counts$n_weeks), "\n")
 
-model_input <- panel_clean %>% select(id, time = week, sleep_c, pain_c)
+model_input <- datalong
 na_counts <- colSums(is.na(model_input))
 cat("Missing values in model input:\n")
 print(na_counts)
@@ -255,118 +234,109 @@ print(na_counts)
 used_weeks <- panel_clean %>% pull(week) %>% unique() %>% sort()
 cat("Total unique weeks modeled:", length(used_weeks), "\n")
 cat("Week range:", min(used_weeks), "to", max(used_weeks), "\n")
-
-
-
-install.packages("moments")
-library(moments)
 # ===========================================================
-# DEBUG: RESIDUAL NORMALITY CHECK
-# ===========================================================
+if (requireNamespace("moments", quietly = TRUE)) {
+  cat("\n=== RESIDUAL NORMALITY DIAGNOSTICS ===\n")
 
-cat("\n=== RESIDUAL NORMALITY DIAGNOSTICS ===\n")
+  # Recreate residuals for final dataset
+  residual_data <- panel_clean %>%
+    group_by(id) %>%
+    filter(n() >= 3) %>%
+    mutate(
+      sleep_trend = predict(lm(sleep ~ week, na.action = na.exclude)),
+      pain_trend = predict(lm(pain ~ week, na.action = na.exclude)),
+      sleep_resid = sleep - sleep_trend,
+      pain_resid = pain - pain_trend
+    ) %>%
+    ungroup() %>%
+    filter(!is.na(sleep_resid), !is.na(pain_resid))
 
-# Recreate residuals for final dataset
-residual_data <- panel_clean %>%
-  group_by(id) %>%
-  filter(n() >= 3) %>%
-  mutate(
-    sleep_trend = predict(lm(sleep ~ week, na.action = na.exclude)),
-    pain_trend = predict(lm(pain ~ week, na.action = na.exclude)),
-    sleep_resid = sleep - sleep_trend,
-    pain_resid = pain - pain_trend
-  ) %>%
-  ungroup() %>%
-  filter(!is.na(sleep_resid), !is.na(pain_resid))
+  # Basic descriptive statistics
+  cat("SLEEP RESIDUALS:\n")
+  cat("  Mean:", round(mean(residual_data$sleep_resid), 4), "\n")
+  cat("  SD:", round(sd(residual_data$sleep_resid), 4), "\n")
+  cat("  Median:", round(median(residual_data$sleep_resid), 4), "\n")
+  cat("  MAD:", round(mad(residual_data$sleep_resid), 4), "\n")
+  cat("  Skewness:", round(moments::skewness(residual_data$sleep_resid), 3), "\n")
+  cat("  Kurtosis:", round(moments::kurtosis(residual_data$sleep_resid), 3), "\n")
 
-# Basic descriptive statistics
-cat("SLEEP RESIDUALS:\n")
-cat("  Mean:", round(mean(residual_data$sleep_resid), 4), "\n")
-cat("  SD:", round(sd(residual_data$sleep_resid), 4), "\n")
-cat("  Median:", round(median(residual_data$sleep_resid), 4), "\n")
-cat("  MAD:", round(mad(residual_data$sleep_resid), 4), "\n")
-cat("  Skewness:", round(moments::skewness(residual_data$sleep_resid), 3), "\n")
-cat("  Kurtosis:", round(moments::kurtosis(residual_data$sleep_resid), 3), "\n")
+  cat("\nPAIN RESIDUALS:\n")
+  cat("  Mean:", round(mean(residual_data$pain_resid), 4), "\n")
+  cat("  SD:", round(sd(residual_data$pain_resid), 4), "\n")
+  cat("  Median:", round(median(residual_data$pain_resid), 4), "\n")
+  cat("  MAD:", round(mad(residual_data$pain_resid), 4), "\n")
+  cat("  Skewness:", round(moments::skewness(residual_data$pain_resid), 3), "\n")
+  cat("  Kurtosis:", round(moments::kurtosis(residual_data$pain_resid), 3), "\n")
 
-cat("\nPAIN RESIDUALS:\n")
-cat("  Mean:", round(mean(residual_data$pain_resid), 4), "\n")
-cat("  SD:", round(sd(residual_data$pain_resid), 4), "\n")
-cat("  Median:", round(median(residual_data$pain_resid), 4), "\n")
-cat("  MAD:", round(mad(residual_data$pain_resid), 4), "\n")
-cat("  Skewness:", round(moments::skewness(residual_data$pain_resid), 3), "\n")
-cat("  Kurtosis:", round(moments::kurtosis(residual_data$pain_resid), 3), "\n")
-
-# Normality tests (if you have moments package)
-if(requireNamespace("moments", quietly = TRUE)) {
   # Jarque-Bera test (good for larger samples)
   jb_sleep <- moments::jarque.test(residual_data$sleep_resid)
   jb_pain <- moments::jarque.test(residual_data$pain_resid)
-  
+
   cat("\nJARQUE-BERA NORMALITY TESTS:\n")
   cat("  Sleep residuals: p =", round(jb_sleep$p.value, 4))
   if(jb_sleep$p.value < 0.05) cat(" (NON-NORMAL)") else cat(" (Normal)")
   cat("\n")
-  
+
   cat("  Pain residuals: p =", round(jb_pain$p.value, 4))
   if(jb_pain$p.value < 0.05) cat(" (NON-NORMAL)") else cat(" (Normal)")
   cat("\n")
+
+  # Shapiro-Wilk test (if sample size < 5000)
+  if(nrow(residual_data) <= 5000) {
+    sw_sleep <- shapiro.test(residual_data$sleep_resid)
+    sw_pain <- shapiro.test(residual_data$pain_resid)
+
+    cat("\nSHAPIRO-WILK NORMALITY TESTS:\n")
+    cat("  Sleep residuals: p =", round(sw_sleep$p.value, 4))
+    if(sw_sleep$p.value < 0.05) cat(" (NON-NORMAL)") else cat(" (Normal)")
+    cat("\n")
+
+    cat("  Pain residuals: p =", round(sw_pain$p.value, 4))
+    if(sw_pain$p.value < 0.05) cat(" (NON-NORMAL)") else cat(" (Normal)")
+    cat("\n")
+  } else {
+    cat("\nSample too large for Shapiro-Wilk test (n > 5000)\n")
+  }
+
+  # Visual inspection guidance
+  cat("\n=== VISUAL INSPECTION PLOTS ===\n")
+  cat("Run these commands to visually check normality:\n\n")
+
+  cat("# Sleep residual plots:\n")
+  cat("par(mfrow=c(2,2))\n")
+  cat("hist(residual_data$sleep_resid, main='Sleep Residuals', breaks=30)\n")
+  cat("qqnorm(residual_data$sleep_resid, main='Sleep Q-Q Plot')\n")
+  cat("qqline(residual_data$sleep_resid)\n")
+  cat("plot(residual_data$week, residual_data$sleep_resid, main='Sleep Residuals vs Week')\n")
+  cat("plot(residual_data$sleep_trend, residual_data$sleep_resid, main='Sleep Residuals vs Fitted')\n\n")
+
+  cat("# Pain residual plots:\n")
+  cat("par(mfrow=c(2,2))\n")
+  cat("hist(residual_data$pain_resid, main='Pain Residuals', breaks=30)\n")
+  cat("qqnorm(residual_data$pain_resid, main='Pain Q-Q Plot')\n")
+  cat("qqline(residual_data$pain_resid)\n")
+  cat("plot(residual_data$week, residual_data$pain_resid, main='Pain Residuals vs Week')\n")
+  cat("plot(residual_data$pain_trend, residual_data$pain_resid, main='Pain Residuals vs Fitted')\n\n")
+
+  # Interpretation guide
+  cat("=== INTERPRETATION GUIDE ===\n")
+  cat("NORMALITY INDICATORS:\n")
+  cat("  • Skewness close to 0 (±0.5 is reasonable)\n")
+  cat("  • Kurtosis close to 3 (2-4 is reasonable)\n")
+  cat("  • p-value > 0.05 in normality tests\n")
+  cat("  • Q-Q plot points follow straight line\n")
+  cat("  • Histogram looks bell-shaped\n\n")
+
+  cat("IF RESIDUALS ARE NON-NORMAL:\n")
+  cat("  • Consider robust outlier detection (median ± 3*MAD)\n")
+  cat("  • Use quantile-based thresholds (e.g., 1st/99th percentiles)\n")
+  cat("  • Check if linear trends are appropriate\n")
+  cat("  • Consider non-linear trend models\n\n")
+
+  # Clean up
+  rm(residual_data)
 } else {
   cat("\nInstall 'moments' package for additional normality tests\n")
 }
-
-# Shapiro-Wilk test (if sample size < 5000)
-if(nrow(residual_data) <= 5000) {
-  sw_sleep <- shapiro.test(residual_data$sleep_resid)
-  sw_pain <- shapiro.test(residual_data$pain_resid)
-  
-  cat("\nSHAPIRO-WILK NORMALITY TESTS:\n")
-  cat("  Sleep residuals: p =", round(sw_sleep$p.value, 4))
-  if(sw_sleep$p.value < 0.05) cat(" (NON-NORMAL)") else cat(" (Normal)")
-  cat("\n")
-  
-  cat("  Pain residuals: p =", round(sw_pain$p.value, 4))
-  if(sw_pain$p.value < 0.05) cat(" (NON-NORMAL)") else cat(" (Normal)")
-  cat("\n")
-} else {
-  cat("\nSample too large for Shapiro-Wilk test (n > 5000)\n")
-}
-
-# Visual inspection guidance
-cat("\n=== VISUAL INSPECTION PLOTS ===\n")
-cat("Run these commands to visually check normality:\n\n")
-
-cat("# Sleep residual plots:\n")
-cat("par(mfrow=c(2,2))\n")
-cat("hist(residual_data$sleep_resid, main='Sleep Residuals', breaks=30)\n")
-cat("qqnorm(residual_data$sleep_resid, main='Sleep Q-Q Plot')\n")
-cat("qqline(residual_data$sleep_resid)\n")
-cat("plot(residual_data$week, residual_data$sleep_resid, main='Sleep Residuals vs Week')\n")
-cat("plot(residual_data$sleep_trend, residual_data$sleep_resid, main='Sleep Residuals vs Fitted')\n\n")
-
-cat("# Pain residual plots:\n")
-cat("par(mfrow=c(2,2))\n")
-cat("hist(residual_data$pain_resid, main='Pain Residuals', breaks=30)\n")
-cat("qqnorm(residual_data$pain_resid, main='Pain Q-Q Plot')\n")
-cat("qqline(residual_data$pain_resid)\n")
-cat("plot(residual_data$week, residual_data$pain_resid, main='Pain Residuals vs Week')\n")
-cat("plot(residual_data$pain_trend, residual_data$pain_resid, main='Pain Residuals vs Fitted')\n\n")
-
-# Interpretation guide
-cat("=== INTERPRETATION GUIDE ===\n")
-cat("NORMALITY INDICATORS:\n")
-cat("  • Skewness close to 0 (±0.5 is reasonable)\n")
-cat("  • Kurtosis close to 3 (2-4 is reasonable)\n")
-cat("  • p-value > 0.05 in normality tests\n")
-cat("  • Q-Q plot points follow straight line\n")
-cat("  • Histogram looks bell-shaped\n\n")
-
-cat("IF RESIDUALS ARE NON-NORMAL:\n")
-cat("  • Consider robust outlier detection (median ± 3*MAD)\n")
-cat("  • Use quantile-based thresholds (e.g., 1st/99th percentiles)\n")
-cat("  • Check if linear trends are appropriate\n")
-cat("  • Consider non-linear trend models\n\n")
-
-# Clean up
-rm(residual_data)
 
 
