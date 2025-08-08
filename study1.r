@@ -158,6 +158,9 @@ cat("Range of differences:", min(week_diffs), "to", max(week_diffs), "\n\n")
 # ===========================================================
 datalong <- panel_clean %>% select(id, time = week, sleep_c, pain_c) %>% drop_na()
 
+diffusion_matrix <- matrix(0, 2, 2)
+diag(diffusion_matrix) <- c("diff_s", "diff_p")
+
 ctmodel <- ctModel(
   type          = "stanct",
   manifestNames = c("sleep_c", "pain_c"),
@@ -166,8 +169,8 @@ ctmodel <- ctModel(
   DRIFT         = matrix(c("ar_s","cl_ps",
                            "cl_sp","ar_p"), 2, 2, byrow = TRUE),
   CINT          = matrix(c("trend_s","trend_p"), 2, 1),
-  DIFFUSION     = diag(c(0.1, 0.1)),
-  MANIFESTVAR   = diag(c(1.0, 1.0)),
+  DIFFUSION     = diffusion_matrix,
+  MANIFESTVAR   = diag(1, 2),
   T0MEANS       = matrix(c(0, 0), 2, 1),
   T0VAR         = diag(c(1.0, 1.0))
 )
